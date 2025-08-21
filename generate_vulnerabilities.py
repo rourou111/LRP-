@@ -62,7 +62,7 @@ classifier = PyTorchClassifier(
     clip_values=(0, 1), # 输入图像的像素值范围
     loss=criterion,
     optimizer=optimizer,
-    input_shape=(3, 32, 32), # CIFAR-10图像的形状
+    input_shape=(3, 32, 32), # SVHN图像的形状
     nb_classes=10,
 )
 
