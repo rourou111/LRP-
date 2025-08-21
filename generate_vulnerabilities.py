@@ -21,7 +21,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-# 加载CIFAR-10测试集
+# 加载SVHN测试集
 # --- 修改后的代码 ---
 testset = torchvision.datasets.SVHN(root='./data', split='test',
                                     download=True, transform=transform)
