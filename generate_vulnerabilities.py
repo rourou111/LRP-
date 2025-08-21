@@ -22,13 +22,14 @@ transform = transforms.Compose([
 ])
 
 # 加载CIFAR-10测试集
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=False, transform=transform)
+# --- 修改后的代码 ---
+testset = torchvision.datasets.SVHN(root='./data', split='test',
+                                    download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=100,
                                          shuffle=False, num_workers=2)
 
 # 类别标签
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+classes = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
 
 # 加载一个预训练的ResNet-18模型
 # a "BlackBox" model that we want to find vulnerabilities in.
