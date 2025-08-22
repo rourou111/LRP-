@@ -73,41 +73,41 @@ print("Model and data loaded successfully.\n")
 # =============================================================================
 # 2. 类别1：对抗性漏洞 (Adversarial Vulnerability)
 # =============================================================================
-def generate_adversarial_samples(classifier, data_loader, limit=5):
+def generate_adversarial_samples(classifier, data_loader):
     """
     使用PGD攻击生成对抗样本
     """
     print("--- Step 2: Generating adversarial samples (Category 1) ---")
     adversarial_samples = []
+    count = 0
     # 初始化PGD攻击
     attack = ProjectedGradientDescent(estimator=classifier, norm=np.inf, eps=8/255, eps_step=2/255, max_iter=20, targeted=False)
     
-    # 从数据加载器中获取一批数据
-    images, labels = next(iter(data_loader))
-    images, labels = images.numpy(), labels.numpy()
+    # 遍历数据加载器中的所有批次
+    for batch_idx, (images, labels) in enumerate(data_loader):
+        print(f"\r  正在处理对抗样本，批次: {batch_idx+1}/{len(data_loader)}", end="")
+        images, labels = images.numpy(), labels.numpy()
     
-    # 生成对抗样本
-    adversarial_images = attack.generate(x=images)
-    
-    # 验证攻击效果
-    original_preds = np.argmax(classifier.predict(images), axis=1)
-    adversarial_preds = np.argmax(classifier.predict(adversarial_images), axis=1)
-    
-    count = 0
-    for i in range(len(images)):
-        if original_preds[i] == labels[i] and adversarial_preds[i] != labels[i] and count < limit:
-            # 筛选出“原始预测正确”且“攻击后预测错误”的样本
-            adversarial_samples.append({
-                "original_image": torch.tensor(images[i]),
-                "adversarial_image": torch.tensor(adversarial_images[i]),
-                "label": labels[i],
-                "original_pred": original_preds[i],
-                "adversarial_pred": adversarial_preds[i],
-                "vulnerability_type": "adversarial_pgd"
-            })
-            count += 1
-            print(f"  Found an adversarial sample: Original={classes[labels[i]]}, Adversarial pred={classes[adversarial_preds[i]]}")
-
+        # 生成对抗样本
+        adversarial_images = attack.generate(x=images)
+        
+        # 验证攻击效果
+        original_preds = np.argmax(classifier.predict(images), axis=1)
+        adversarial_preds = np.argmax(classifier.predict(adversarial_images), axis=1)
+        
+        for i in range(len(images)):
+            if original_preds[i] == labels[i] and adversarial_preds[i] != labels[i]:
+                # 筛选出“原始预测正确”且“攻击后预测错误”的样本
+                adversarial_samples.append({
+                    "original_image": torch.tensor(images[i]),
+                    "adversarial_image": torch.tensor(adversarial_images[i]),
+                    "label": labels[i],
+                    "original_pred": original_preds[i],
+                    "adversarial_pred": adversarial_preds[i],
+                    "vulnerability_type": "adversarial_pgd"
+                })
+                count += 1
+                print(f"  Found an adversarial sample: Original={classes[labels[i]]}, Adversarial pred={classes[adversarial_preds[i]]}")
     print(f"Generated {len(adversarial_samples)} adversarial samples.\n")
     return adversarial_samples
 
@@ -121,39 +121,40 @@ def add_gaussian_noise(image, std_dev=0.15):
     noisy_image = image + noise
     return torch.clamp(noisy_image, 0, 1) # 将像素值裁剪回[0, 1]范围
 
-def generate_noisy_samples(model, data_loader, limit=5):
+def generate_noisy_samples(model, data_loader):
     """
     通过添加高斯噪声生成失效样本
     """
     print("--- Step 3: Generating noisy samples (Category 2) ---")
     noisy_samples = []
-    
-    images, labels = next(iter(data_loader))
-    images = images.to(device) # <-- 将图像数据移动到GPU
-    
-    # 原始预测
-    original_outputs = model(images)
-    original_preds = torch.argmax(original_outputs, dim=1)
-    
-    # 添加噪声并获取新预测
-    noisy_images = add_gaussian_noise(images.clone())
-    noisy_outputs = model(noisy_images)
-    noisy_preds = torch.argmax(noisy_outputs, dim=1)
-    
     count = 0
-    for i in range(len(images)):
-        if original_preds[i] == labels[i] and noisy_preds[i] != labels[i] and count < limit:
-            # 筛选出“原始预测正确”且“加噪后预测错误”的样本
-            noisy_samples.append({
-                "original_image": images[i],
-                "noisy_image": noisy_images[i],
-                "label": labels[i],
-                "original_pred": original_preds[i].item(),
-                "noisy_pred": noisy_preds[i].item(),
-                "vulnerability_type": "noise_gaussian"
-            })
-            count += 1
-            print(f"  Found a noisy sample: Original={classes[labels[i]]}, Noisy pred={classes[noisy_preds[i]]}")
+    
+    # 遍历数据加载器中的所有批次
+    for batch_idx, (images, labels) in enumerate(data_loader):
+        print(f"\r  正在处理噪声样本，批次: {batch_idx+1}/{len(data_loader)}", end="")
+    
+        # 原始预测
+        original_outputs = model(images)
+        original_preds = torch.argmax(original_outputs, dim=1)
+        
+        # 添加噪声并获取新预测
+        noisy_images = add_gaussian_noise(images.clone())
+        noisy_outputs = model(noisy_images)
+        noisy_preds = torch.argmax(noisy_outputs, dim=1)
+        
+        for i in range(len(images)):
+            if original_preds[i] == labels[i] and noisy_preds[i] != labels[i]:
+                # 筛选出“原始预测正确”且“加噪后预测错误”的样本
+                noisy_samples.append({
+                    "original_image": images[i],
+                    "noisy_image": noisy_images[i],
+                    "label": labels[i],
+                    "original_pred": original_preds[i].item(),
+                    "noisy_pred": noisy_preds[i].item(),
+                    "vulnerability_type": "noise_gaussian"
+                })
+                count += 1
+                print(f"  Found a noisy sample: Original={classes[labels[i]]}, Noisy pred={classes[noisy_preds[i]]}")
 
     print(f"Generated {len(noisy_samples)} noisy samples.\n")
     return noisy_samples
@@ -176,41 +177,41 @@ def perturb_model_weights(model, layer_name='layer4.1.conv2', std_dev=1e-2):
     drifted_model.eval()
     return drifted_model
 
-def generate_drift_samples(original_model, data_loader, limit=5):
+def generate_drift_samples(original_model, data_loader):
     """
     通过模拟参数漂移生成失效样本
     """
     print("--- Step 4: Generating parameter drift samples (Category 3) ---")
     drift_samples = []
+    count = 0
     
     # 创建一个权重被扰动的新模型
     drifted_model = perturb_model_weights(original_model)
     drifted_model.to(device) # <-- 【增加这一行】将漂移模型也移动到和主模型、数据相同的设备上
     
     
-    images, labels = next(iter(data_loader))
-    images = images.to(device) # <-- 将图像数据移动到GPU
-    
-    # 使用原始模型和漂移模型进行预测
-    original_outputs = original_model(images)
-    original_preds = torch.argmax(original_outputs, dim=1)
-    
-    drifted_outputs = drifted_model(images)
-    drifted_preds = torch.argmax(drifted_outputs, dim=1)
-    
-    count = 0
-    for i in range(len(images)):
-        if original_preds[i] == labels[i] and drifted_preds[i] != labels[i] and count < limit:
-            # 筛选出“原始模型预测正确”且“漂移模型预测错误”的样本
-            drift_samples.append({
-                "image": images[i],
-                "label": labels[i],
-                "original_pred": original_preds[i].item(),
-                "drifted_pred": drifted_preds[i].item(),
-                "vulnerability_type": "drift_parameter"
-            })
-            count += 1
-            print(f"  Found a drift sample: Original={classes[labels[i]]}, Drifted pred={classes[drifted_preds[i]]}")
+    # 遍历数据加载器中的所有批次
+    for batch_idx, (images, labels) in enumerate(data_loader):
+        print(f"\r  正在处理参数漂移样本，批次: {batch_idx+1}/{len(data_loader)}", end="")
+        # 使用原始模型和漂移模型进行预测
+        original_outputs = original_model(images)
+        original_preds = torch.argmax(original_outputs, dim=1)
+        
+        drifted_outputs = drifted_model(images)
+        drifted_preds = torch.argmax(drifted_outputs, dim=1)
+        
+        for i in range(len(images)):
+            if original_preds[i] == labels[i] and drifted_preds[i] != labels[i]:
+                # 筛选出“原始模型预测正确”且“漂移模型预测错误”的样本
+                drift_samples.append({
+                    "image": images[i],
+                    "label": labels[i],
+                    "original_pred": original_preds[i].item(),
+                    "drifted_pred": drifted_preds[i].item(),
+                    "vulnerability_type": "drift_parameter"
+                })
+                count += 1
+                print(f"  Found a drift sample: Original={classes[labels[i]]}, Drifted pred={classes[drifted_preds[i]]}")
     
     print(f"Generated {len(drift_samples)} parameter drift samples.\n")
     return drift_samples, drifted_model
@@ -223,16 +224,9 @@ if __name__ == '__main__':
     print("--- Step 5: Executing all steps and collecting samples ---")
 
     # 生成对抗性漏洞样本
-    adversarial_vulnerabilities = generate_adversarial_samples(classifier, testloader, limit=5)
-
-    # 生成噪声漏洞样本
-    noisy_vulnerabilities = generate_noisy_samples(model, testloader, limit=5)
-
-    # 生成参数漂移漏洞样本
-    drift_vulnerabilities, drifted_model = generate_drift_samples(model, testloader, limit=5)
-
-    # 汇总所有漏洞样本
-    all_vulnerabilities = adversarial_vulnerabilities + noisy_vulnerabilities + drift_vulnerabilities
+    adversarial_vulnerabilities = generate_adversarial_samples(classifier, testloader)
+    noisy_vulnerabilities = generate_noisy_samples(model, testloader)
+    drift_vulnerabilities, drifted_model = generate_drift_samples(model, testloader)
 
     print(f"\nTotal vulnerabilities collected: {len(all_vulnerabilities)}")
     print("Vulnerability sample generation complete!")
