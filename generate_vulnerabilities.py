@@ -236,9 +236,7 @@ if __name__ == '__main__':
 
     print(f"\nTotal vulnerabilities collected: {len(all_vulnerabilities)}")
     print("Vulnerability sample generation complete!")
-    
-output_filename = 'all_vulnerabilities.pkl'
-with open(output_filename, 'wb') as f:
-    pickle.dump(all_vulnerabilities, f)
-
-print(f"\nVulnerabilities successfully saved to {output_filename}")
+    output_filename = 'all_vulnerabilities.pkl'
+    with open(output_filename, 'wb') as f:
+        pickle.dump(all_vulnerabilities, f)
+    print(f"\nVulnerabilities successfully saved to {output_filename}")
