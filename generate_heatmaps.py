@@ -101,18 +101,25 @@ axes[1].set_title(f'Adversarial Image\nPredicted: {target_class}')
 axes[1].axis('off')
 
 # 3. 显示LRP热力图
+# In older Captum versions, we don't pass fig/axes. 
+# The function returns the figure after plotting.
 attribution_np = attribution.squeeze(0).cpu().detach().permute(1, 2, 0).numpy()
-viz.visualize_image_attr(
+
+# Set the current axes for plotting
+plt.sca(axes[2]) 
+
+# Call the function without fig and axes arguments
+_ = viz.visualize_image_attr(
     attr=attribution_np,
     original_image=adversarial_img_np,
     method='blended_heat_map',
     sign='all',
     show_colorbar=True,
-    title='LRP Heatmap',
-    fig=fig,
-    axes=axes[2],
-    use_pyplot=False
+    title='LRP Heatmap'
 )
+# The line above will automatically draw on axes[2]
+
+axes[2].set_title('LRP Heatmap') # Manually set title for consistency
 axes[2].axis('off')
 
 plt.tight_layout()
