@@ -6,6 +6,7 @@ from torchvision import transforms
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 # 导入 Captum 库中的核心模块：LRP 和可视化工具
 from captum.attr import LRP
