@@ -64,7 +64,7 @@ except FileNotFoundError:
 # =============================================================================
 # 1. 准备LRP需要的输入数据
 adversarial_image = vulnerability_sample['adversarial_image'].to(device)
-target_class = vulnerability_sample['adversarial_pred']
+target_class = int(vulnerability_sample['adversarial_pred'])
 original_image = vulnerability_sample['original_image'].to(device)
 true_label = vulnerability_sample['label']
 
@@ -84,8 +84,8 @@ print(f"归因计算完成！热力图数据的形状: {attribution.shape}")
 # =============================================================================
 print("\n--- 开始生成可视化图像 ---")
 
-original_img_np = original_image.cpu().permute(1, 2, 0).numpy()
-adversarial_img_np = adversarial_image.cpu().permute(1, 2, 0).numpy()
+original_img_np = original_image.cpu().detach().permute(1, 2, 0).numpy()
+adversarial_img_np = adversarial_image.cpu().detach().permute(1, 2, 0).numpy()
 
 plt.close('all')
 fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -101,7 +101,7 @@ axes[1].set_title(f'Adversarial Image\nPredicted: {target_class}')
 axes[1].axis('off')
 
 # 3. 显示LRP热力图
-attribution_np = attribution.squeeze(0).cpu().permute(1, 2, 0).numpy()
+attribution_np = attribution.squeeze(0).cpu().detach().permute(1, 2, 0).numpy()
 viz.visualize_image_attr(
     attr=attribution_np,
     original_image=adversarial_img_np,
