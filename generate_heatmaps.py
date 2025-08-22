@@ -60,70 +60,74 @@ except FileNotFoundError:
 
 
 # =============================================================================
-# 第3部分：初始化LRP并计算归因
+# 第3部分 (新版): 成对计算 H_clean 和 H_vuln
 # =============================================================================
-# 1. 准备LRP需要的输入数据
-adversarial_image = vulnerability_sample['adversarial_image'].to(device)
-target_class = int(vulnerability_sample['adversarial_pred'])
-original_image = vulnerability_sample['original_image'].to(device)
-true_label = vulnerability_sample['label']
 
-print("\n--- 开始计算LRP归因 ---")
-print(f"分析目标: 对抗样本 (真实类别: {true_label}, 模型错误预测为: {target_class})")
+# 我们将创建一个新列表，用于存储成对的热力图数据
+paired_heatmaps_data = []
 
-# 2. 初始化LRP分析器
+print(f"\n--- 开始为 {len(all_vulnerabilities)} 个漏洞样本生成成对的热力图 ---")
+
+# 初始化LRP分析器 (我们只需要初始化一次)
 lrp = LRP(model)
 
-# 3. 计算归因（即生成热力图数据）
-attribution = lrp.attribute(adversarial_image.unsqueeze(0), target=target_class)
-print(f"归因计算完成！热力图数据的形状: {attribution.shape}")
+# 使用 for 循环遍历每一个漏洞样本
+for i, sample in enumerate(all_vulnerabilities):
 
+    # --- 1. 准备计算 H_clean 和 H_vuln 所需的全部“原材料” ---
+
+    # 原始干净图片 (所有样本类型都有)
+    original_image = sample['original_image'].to(device)
+    # 真实、正确的标签 (所有样本类型都有)
+    true_label = int(sample['label'])
+
+    # 根据漏洞类型，确定失效图片和错误预测的标签
+    if sample['vulnerability_type'] == 'adversarial_pgd':
+        vulnerable_image = sample['adversarial_image'].to(device)
+        predicted_class = int(sample['adversarial_pred'])
+    elif sample['vulnerability_type'] == 'noise_gaussian':
+        vulnerable_image = sample['noisy_image'].to(device)
+        predicted_class = int(sample['noisy_pred'])
+    elif sample['vulnerability_type'] == 'drift_parameter':
+        # 漂移漏洞的键名不同，我们用 original_image 作为失效图片
+        vulnerable_image = sample['image'].to(device) 
+        predicted_class = int(sample['drifted_pred'])
+    else:
+        print(f"警告: 跳过未知漏洞类型 at index {i}")
+        continue
+
+    print(f"  处理样本 {i+1}/{len(all_vulnerabilities)}: 真实类别: {true_label}, 模型错误预测为: {predicted_class}")
+
+    # --- 2. 执行两次LRP计算 ---
+
+    # 计算A (H_clean): 干净图片 -> 对应 -> 真实标签
+    attribution_clean = lrp.attribute(original_image.unsqueeze(0), target=true_label)
+
+    # 计算B (H_vuln): 失效图片 -> 对应 -> 错误标签
+    attribution_vuln = lrp.attribute(vulnerable_image.unsqueeze(0), target=predicted_class)
+
+    # --- 3. 将成对的结果存入一个字典 ---
+
+    # 我们使用 .cpu() 来确保保存的是CPU上的Tensor，更容易迁移
+    paired_data = {
+        "h_clean": attribution_clean.squeeze(0).cpu(),
+        "h_vuln": attribution_vuln.squeeze(0).cpu(),
+        "vulnerability_type": sample['vulnerability_type'],
+        "true_label": true_label,
+        "predicted_class": predicted_class
+    }
+
+    # 将这个包含了一对热力图的字典，添加到我们的总列表中
+    paired_heatmaps_data.append(paired_data)
+
+print("\n--- 所有样本的成对热力图已计算完毕 ---")
 
 # =============================================================================
-# 第4部分：可视化归因热力图
+# 第4部分 (新版)：保存包含成对热力图的最终结果
 # =============================================================================
-print("\n--- 开始生成可视化图像 ---")
+output_filename = 'paired_heatmaps.pkl'
+with open(output_filename, 'wb') as f:
+    pickle.dump(paired_heatmaps_data, f)
 
-original_img_np = original_image.cpu().detach().permute(1, 2, 0).numpy()
-adversarial_img_np = adversarial_image.cpu().detach().permute(1, 2, 0).numpy()
-
-plt.close('all')
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-# 1. 显示原始图片
-axes[0].imshow(original_img_np)
-axes[0].set_title(f'Original Image\nTrue Label: {true_label}')
-axes[0].axis('off')
-
-# 2. 显示对抗样本图片
-axes[1].imshow(adversarial_img_np)
-axes[1].set_title(f'Adversarial Image\nPredicted: {target_class}')
-axes[1].axis('off')
-
-# 3. 显示LRP热力图
-# In older Captum versions, we don't pass fig/axes. 
-# The function returns the figure after plotting.
-attribution_np = attribution.squeeze(0).cpu().detach().permute(1, 2, 0).numpy()
-
-# Set the current axes for plotting
-plt.sca(axes[2]) 
-
-# Call the function without fig and axes arguments
-_ = viz.visualize_image_attr(
-    attr=attribution_np,
-    original_image=adversarial_img_np,
-    method='blended_heat_map',
-    sign='all',
-    show_colorbar=True,
-    title='LRP Heatmap'
-)
-# The line above will automatically draw on axes[2]
-
-axes[2].set_title('LRP Heatmap') # Manually set title for consistency
-axes[2].axis('off')
-
-plt.tight_layout()
-print("图像已生成，正在显示...")
-plt.show()
-
-print("\n脚本执行完毕！")
+print(f"\n包含成对热力图的最终结果已成功保存到: {output_filename}")
+print("您现在可以进入下一个阶段：指纹提取与分析！")
