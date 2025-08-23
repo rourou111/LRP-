@@ -24,7 +24,7 @@ transform = transforms.Compose([
 
 # 加载SVHN测试集
 # --- 修改后的代码 ---
-testset = torchvision.datasets.SVHN(root='./data', split='test',
+testset = torchvision.datasets.SVHN(root='../data', split='test',
                                     download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=100,
                                          shuffle=False, num_workers=2)
