@@ -79,3 +79,53 @@ def calculate_cosine_similarity(h1_tensor, h2_tensor):
     similarity = 1 - distance
     
     return similarity
+def _prepare_distributions(h_tensor):
+    """
+    辅助函数：将单个热力图处理成正、负两个子概率分布。
+    """
+    # 展平热力图
+    h_flat = h_tensor.detach().flatten()
+    
+    # 步骤 1: 计算总相关性强度 (Total Relevance)
+    # 这是我们统一的“货币单位”
+    total_relevance = torch.sum(torch.abs(h_flat))
+    epsilon = 1e-10 # 防止除以零
+
+    # 步骤 2: 分离正、负贡献
+    # torch.clamp(min=0) 会将所有负值变为0，保留所有正值
+    h_pos = torch.clamp(h_flat, min=0)
+    # torch.clamp(max=0) 会将所有正值变为0，保留所有负值
+    # 我们再取绝对值，得到正数的负贡献强度
+    h_neg = torch.abs(torch.clamp(h_flat, max=0))
+
+    # 步骤 3: 按总强度归一化，得到两个子概率分布
+    p_pos = h_pos / (total_relevance + epsilon)
+    p_neg = h_neg / (total_relevance + epsilon)
+    
+    # 为了数值稳定性，给每个元素都加上极小值
+    p_pos += epsilon
+    p_neg += epsilon
+    
+    return p_pos.numpy(), p_neg.numpy()
+
+
+def calculate_kl_divergences(h_clean_tensor, h_vuln_tensor):
+    """
+    计算干净热力图与失效热力图之间，正、负贡献分布的KL散度。
+    
+    Args:
+        h_clean_tensor (torch.Tensor): 干净样本的热力图 (基准分布 P)。
+        h_vuln_tensor (torch.Tensor): 失效样本的热力图 (近似分布 Q)。
+
+    Returns:
+        tuple[float, float]: 返回一个元组，包含 (正贡献KL散度, 负贡献KL散度)。
+    """
+    # 步骤 1: 为两张热力图分别准备正、负子概率分布
+    p_clean_pos, p_clean_neg = _prepare_distributions(h_clean_tensor)
+    p_vuln_pos, p_vuln_neg = _prepare_distributions(h_vuln_tensor)
+
+    # 步骤 2: 分别计算正、负贡献的KL散度
+    kl_pos = kl_divergence(p_clean_pos, p_vuln_pos)
+    kl_neg = kl_divergence(p_clean_neg, p_vuln_neg)
+    
+    return kl_pos, kl_neg
