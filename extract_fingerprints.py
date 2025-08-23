@@ -146,3 +146,65 @@ def calculate_std_dev(h_vuln_tensor):
     std_deviation = np.std(h_vuln_np)
     
     return std_deviation
+
+# =============================================================================
+# 步骤四：批量处理所有样本，提取指纹
+# =============================================================================
+
+# 创建一个列表，用于存储每个漏洞样本的最终指纹数据
+fingerprints_list = []
+
+print(f"\n--- 开始为 {len(paired_heatmaps)} 组热力图提取指纹 ---")
+
+# 遍历我们从 .pkl 文件中加载的每一组成对的热力图数据
+for i, data_pair in enumerate(paired_heatmaps):
+    
+    # 从数据对中取出干净热力图、失效热力图和漏洞类型标签
+    h_clean = data_pair['h_clean']
+    h_vuln = data_pair['h_vuln']
+    vuln_type = data_pair['vulnerability_type']
+    
+    print(f"\r  正在处理样本 {i+1}/{len(paired_heatmaps)}", end="")
+    
+    # --- 调用我们之前定义的所有函数，计算6个特征值 ---
+    
+    # 1. 对比性特征
+    wasserstein = calculate_wasserstein(h_clean, h_vuln)
+    cosine_sim = calculate_cosine_similarity(h_clean, h_vuln)
+    kl_pos, kl_neg = calculate_kl_divergences(h_clean, h_vuln)
+    
+    # 2. 内在性特征
+    std = calculate_std_dev(h_vuln)
+    kurt = calculate_kurtosis(h_vuln)
+    
+    # --- 将所有结果存入一个字典 ---
+    fingerprint_data = {
+        'wasserstein_dist': wasserstein,
+        'cosine_similarity': cosine_sim,
+        'kl_divergence_pos': kl_pos,
+        'kl_divergence_neg': kl_neg,
+        'std_dev': std,
+        'kurtosis': kurt,
+        'vulnerability_type': vuln_type
+    }
+    
+    # 将这个样本的指纹字典添加到总列表中
+    fingerprints_list.append(fingerprint_data)
+
+print("\n--- 所有指纹已成功提取 ---")
+
+# =============================================================================
+# 步骤五：使用Pandas将结果保存为CSV文件
+# =============================================================================
+
+# 将包含所有字典的列表，转换为一个Pandas DataFrame
+fingerprints_df = pd.DataFrame(fingerprints_list)
+
+# 定义输出文件名
+output_filename = 'vulnerability_fingerprints.csv'
+
+# 将DataFrame保存为CSV文件，不包含行索引
+fingerprints_df.to_csv(output_filename, index=False)
+
+print(f"\n指纹数据已成功保存到: {output_filename}")
+print("项目核心阶段已完成！您现在拥有了可用于训练机器学习模型的数据集。")
