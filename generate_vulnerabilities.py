@@ -227,6 +227,9 @@ if __name__ == '__main__':
     adversarial_vulnerabilities = generate_adversarial_samples(classifier, testloader)
     noisy_vulnerabilities = generate_noisy_samples(model, testloader)
     drift_vulnerabilities, drifted_model = generate_drift_samples(model, testloader)
+    # 汇总所有漏洞样本
+    all_vulnerabilities = adversarial_vulnerabilities + noisy_vulnerabilities + drift_vulnerabilities
+
 
     print(f"\nTotal vulnerabilities collected: {len(all_vulnerabilities)}")
     print("Vulnerability sample generation complete!")
