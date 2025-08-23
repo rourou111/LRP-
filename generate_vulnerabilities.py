@@ -132,6 +132,8 @@ def generate_noisy_samples(model, data_loader):
     # 遍历数据加载器中的所有批次
     for batch_idx, (images, labels) in enumerate(data_loader):
         print(f"\r  正在处理噪声样本，批次: {batch_idx+1}/{len(data_loader)}", end="")
+        images = images.to(device)
+        labels = labels.to(device)
     
         # 原始预测
         original_outputs = model(images)
@@ -193,6 +195,8 @@ def generate_drift_samples(original_model, data_loader):
     # 遍历数据加载器中的所有批次
     for batch_idx, (images, labels) in enumerate(data_loader):
         print(f"\r  正在处理参数漂移样本，批次: {batch_idx+1}/{len(data_loader)}", end="")
+        images = images.to(device)
+        labels = labels.to(device)
         # 使用原始模型和漂移模型进行预测
         original_outputs = original_model(images)
         original_preds = torch.argmax(original_outputs, dim=1)
