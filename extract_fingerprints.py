@@ -51,3 +51,31 @@ def calculate_wasserstein(h1_tensor, h2_tensor):
     distance = wasserstein_distance(h1_flat, h2_flat)
     
     return distance    
+
+def calculate_cosine_similarity(h1_tensor, h2_tensor):
+    """
+    计算两张热力图之间的余弦相似度 (Cosine Similarity)。
+
+    Args:
+        h1_tensor (torch.Tensor): 第一张热力图。
+        h2_tensor (torch.Tensor): 第二张热力图。
+
+    Returns:
+        float: 两张热力图之间的余弦相似度。
+    """
+    # 步骤 1: 使用 .detach() 将Tensor从计算图中分离，然后转换为NumPy数组
+    h1_np = h1_tensor.detach().numpy()
+    h2_np = h2_tensor.detach().numpy()
+
+    # 步骤 2: 将二维的热力图矩阵展平为一维向量
+    h1_flat = h1_np.flatten()
+    h2_flat = h2_np.flatten()
+
+    # 步骤 3: 计算余弦距离。注意：scipy计算的是“距离”，而不是“相似度”
+    # 余弦距离 = 1 - 余弦相似度
+    distance = cosine_distance(h1_flat, h2_flat)
+    
+    # 步骤 4: 将距离转换回我们需要的相似度
+    similarity = 1 - distance
+    
+    return similarity
