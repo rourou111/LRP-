@@ -129,3 +129,20 @@ def calculate_kl_divergences(h_clean_tensor, h_vuln_tensor):
     kl_neg = kl_divergence(p_clean_neg, p_vuln_neg)
     
     return kl_pos, kl_neg
+def calculate_std_dev(h_vuln_tensor):
+    """
+    计算单张热力图（特指失效样本的）像素值的标准差。
+
+    Args:
+        h_vuln_tensor (torch.Tensor): 失效样本的热力图。
+
+    Returns:
+        float: 热力图像素值的标准差。
+    """
+    # 步骤 1: 将Tensor安全地转换为NumPy数组
+    h_vuln_np = h_vuln_tensor.detach().numpy()
+    
+    # 步骤 2: 直接调用NumPy的std函数计算并返回标准差
+    std_deviation = np.std(h_vuln_np)
+    
+    return std_deviation
